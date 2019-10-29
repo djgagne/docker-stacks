@@ -15,7 +15,6 @@ RUN fix-permissions $R_LIBS_USER
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     fonts-dejavu \
-    tzdata \
     gfortran \
     gcc && \
     rm -rf /var/lib/apt/lists/*
@@ -24,12 +23,13 @@ USER $NB_UID
 
 # R packages
 RUN conda install --quiet --yes \
-    'r-base=3.4.1' \
-    'r-irkernel=0.8*' \
-    'r-ggplot2=2.2*' \
-    'r-sparklyr=0.7*' \
-    'r-rcurl=1.95*' && \
-    conda clean -tipsy && \
+    'r-base=3.6.1' \
+    'r-ggplot2=3.2*' \
+    'r-irkernel=1.0*' \
+    'r-rcurl=1.95*' \
+    'r-sparklyr=1.0*' \
+    && \
+    conda clean --all -f -y && \
     fix-permissions $CONDA_DIR && \
     fix-permissions /home/$NB_USER
 
@@ -44,7 +44,7 @@ RUN pip install --no-cache-dir \
 
 # Spylon-kernel
 RUN conda install --quiet --yes 'spylon-kernel=0.4*' && \
-    conda clean -tipsy && \
+    conda clean --all -f -y && \
     python -m spylon_kernel install --sys-prefix && \
     rm -rf /home/$NB_USER/.local && \
     fix-permissions $CONDA_DIR && \
