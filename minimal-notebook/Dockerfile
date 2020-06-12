@@ -10,7 +10,8 @@ USER root
 # Install all OS dependencies for fully functional notebook server
 RUN apt-get update && apt-get install -yq --no-install-recommends \
     build-essential \
-    emacs \
+    emacs-nox \
+    vim-tiny \
     git \
     inkscape \
     jed \
@@ -19,19 +20,18 @@ RUN apt-get update && apt-get install -yq --no-install-recommends \
     libxrender1 \
     lmodern \
     netcat \
-    pandoc \
     python-dev \
-    texlive-fonts-extra \
+    # ---- nbconvert dependencies ----
+    texlive-xetex \
     texlive-fonts-recommended \
     texlive-generic-recommended \
-    texlive-latex-base \
-    texlive-latex-extra \
-    texlive-xetex \
+    # Optional dependency
+    texlive-fonts-extra \
+    # ----
     tzdata \
     unzip \
     nano \
-    vim \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Switch back to jovyan to avoid accidental container runs as root
 USER $NB_UID

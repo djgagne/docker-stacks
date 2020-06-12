@@ -45,9 +45,24 @@ arch_patch/%: ## apply hardware architecture specific patches to the Dockerfile
 build/%: DARGS?=
 build/%: ## build the latest image for a stack
 	docker build $(DARGS) --rm --force-rm -t $(OWNER)/$(notdir $@):latest ./$(notdir $@)
+	@echo -n "Built image size: "
+	@docker images $(OWNER)/$(notdir $@):latest --format "{{.Size}}"
 
 build-all: $(foreach I,$(ALL_IMAGES),arch_patch/$(I) build/$(I) ) ## build all stacks
 build-test-all: $(foreach I,$(ALL_IMAGES),arch_patch/$(I) build/$(I) test/$(I) ) ## build and test all stacks
+
+check-outdated/%: ## check the outdated conda packages in a stack and produce a report (experimental)
+	@TEST_IMAGE="$(OWNER)/$(notdir $@)" pytest test/test_outdated.py
+
+cont-clean-all: cont-stop-all cont-rm-all ## clean all containers (stop + rm)
+
+cont-stop-all: ## stop all containers
+	@echo "Stopping all containers ..."
+	-docker stop -t0 $(shell docker ps -a -q) 2> /dev/null
+
+cont-rm-all: ## remove all containers
+	@echo "Removing all containers ..."
+	-docker rm --force $(shell docker ps -a -q) 2> /dev/null
 
 dev/%: ARGS?=
 dev/%: DARGS?=
@@ -58,6 +73,20 @@ dev/%: ## run a foreground container for a stack
 dev-env: ## install libraries required to build docs and run tests
 	pip install -r requirements-dev.txt
 
+img-clean: img-rm-dang img-rm ## clean dangling and jupyter images
+
+img-list: ## list jupyter images
+	@echo "Listing $(OWNER) images ..."
+	docker images "$(OWNER)/*"
+
+img-rm:  ## remove jupyter images
+	@echo "Removing $(OWNER) images ..."
+	-docker rmi --force $(shell docker images --quiet "$(OWNER)/*") 2> /dev/null
+
+img-rm-dang: ## remove dangling images (tagged None)
+	@echo "Removing dangling images ..."
+	-docker rmi --force $(shell docker images -f "dangling=true" -q) 2> /dev/null
+
 docs: ## build HTML documentation
 	make -C docs html
 
@@ -67,6 +96,18 @@ n-docs-diff: ## number of docs/ files changed since branch from master
 
 n-other-diff: ## number of files outside docs/ changed since branch from master
 	@git diff --name-only $(DIFF_RANGE) -- ':!docs/' | wc -l | awk '{print $$1}'
+
+pull/%: DARGS?=
+pull/%: ## pull a jupyter image
+	docker pull $(DARGS) $(OWNER)/$(notdir $@)
+
+run/%: DARGS?=
+run/%: ## run a bash in interactive mode in a stack
+	docker run -it --rm $(DARGS) $(OWNER)/$(notdir $@) $(SHELL)
+
+run-sudo/%: DARGS?=
+run-sudo/%: ## run a bash in interactive mode as root in a stack
+	docker run -it --rm -u root $(DARGS) $(OWNER)/$(notdir $@) $(SHELL)
 
 tx-en: ## rebuild en locale strings and push to master (req: GH_TOKEN)
 	@git config --global user.email "travis@travis-ci.org"
@@ -82,9 +123,8 @@ tx-en: ## rebuild en locale strings and push to master (req: GH_TOKEN)
 	@git remote add origin-tx https://$${GH_TOKEN}@github.com/jupyter/docker-stacks.git
 	@git push -u origin-tx master
 
+test/%: ## run tests against a stack (only common tests or common tests + specific tests)
+	@if [ ! -d "$(notdir $@)/test" ]; then TEST_IMAGE="$(OWNER)/$(notdir $@)" pytest -m "not info" test; \
+	else TEST_IMAGE="$(OWNER)/$(notdir $@)" pytest -m "not info" test $(notdir $@)/test; fi
 
-test/%: ## run tests against a stack
-	@TEST_IMAGE="$(OWNER)/$(notdir $@)" pytest test
-
-test/base-notebook: ## test supported options in the base notebook
-	@TEST_IMAGE="$(OWNER)/$(notdir $@)" pytest test base-notebook/test
+test-all: $(foreach I,$(ALL_IMAGES),test/$(I)) ## test all stacks
